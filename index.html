@@ -437,6 +437,97 @@ footer.tag b { color: var(--brand); font-weight: 800; letter-spacing: .6px; }
 </style>
 </head>
 <body>
+<script>window.FL_LOADER={"app":"Progress Reports","quiet":["poll"],"noSpin":"[data-a=setpct],[data-a=toggle-day],[data-a=filter]","messages":{"uploadPhoto":"Uploading photo…","saveFile":"Saving the PDF to Google Drive…"}}</script>
+<!-- FL-LOADER v1: Forwardlog loading signs (splash, top bar, button spinner, long-job card). Paste right after <body>. -->
+<style id="fl-loader-css">
+#fl-splash{position:fixed;inset:0;z-index:9999;background:#F3F5F2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;transition:opacity .3s ease}
+#fl-splash.fl-hide{opacity:0;pointer-events:none}
+#fl-splash .fl-mark{height:64px;width:auto;max-width:70vw}
+#fl-splash .fl-word{font:800 30px/1 Montserrat,system-ui,sans-serif;letter-spacing:.5px;color:#6B6B6B}
+#fl-splash .fl-word b{color:#5F7A61}
+#fl-splash .fl-app{font:800 11px/1 Montserrat,system-ui,sans-serif;letter-spacing:2px;text-transform:uppercase;color:#5F7A61}
+.fl-track{width:150px;height:4px;border-radius:9px;background:#DCE3DC;overflow:hidden;position:relative}
+.fl-track i,#fl-bar i{position:absolute;top:0;bottom:0;width:40%;border-radius:9px;background:#5F7A61;animation:fl-slide 1.1s ease-in-out infinite}
+@keyframes fl-slide{0%{left:-40%}100%{left:100%}}
+#fl-bar{position:fixed;left:0;right:0;top:0;height:3px;z-index:9998;overflow:hidden;opacity:0;transition:opacity .2s;pointer-events:none;background:rgba(95,122,97,.15)}
+#fl-bar.fl-on{opacity:1}
+#fl-bar i{width:30%;background:linear-gradient(90deg,#5F7A61,#8FB092)}
+.fl-busy{position:relative!important;color:transparent!important;pointer-events:none!important;opacity:.85}
+.fl-busy *{visibility:hidden}
+.fl-busy::after{content:"";position:absolute;left:50%;top:50%;width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50%;border:2.5px solid currentColor;border-color:rgba(255,255,255,.45);border-top-color:#fff;animation:fl-spin .7s linear infinite;visibility:visible}
+.fl-busy.fl-light::after{border-color:rgba(95,122,97,.3);border-top-color:#5F7A61}
+@keyframes fl-spin{to{transform:rotate(360deg)}}
+#fl-wait{position:fixed;inset:0;z-index:9997;background:rgba(38,42,39,.35);display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;pointer-events:none;transition:opacity .2s}
+#fl-wait.fl-on{opacity:1;pointer-events:auto}
+#fl-wait .fl-card{background:#fff;border-radius:14px;border-top:4px solid #5F7A61;box-shadow:0 10px 30px rgba(0,0,0,.18);padding:22px 22px 18px;max-width:330px;width:100%;text-align:center;font:600 14.5px/1.45 Montserrat,system-ui,sans-serif;color:#262A27}
+#fl-wait .fl-ring{width:34px;height:34px;margin:0 auto 12px;border-radius:50%;border:3.5px solid #DCE3DC;border-top-color:#5F7A61;animation:fl-spin .8s linear infinite}
+#fl-wait small{display:block;margin-top:6px;font-weight:500;font-size:12.5px;color:#7A807B}
+@media (prefers-reduced-motion:reduce){.fl-track i,#fl-bar i{animation-duration:2.2s}#fl-splash{transition:none}}
+@media print{#fl-splash,#fl-bar,#fl-wait{display:none!important}}
+</style>
+<div id="fl-splash" aria-hidden="true"><div class="fl-word">FORWARD<b>LOG</b></div><div class="fl-app"></div><div class="fl-track"><i></i></div></div>
+<div id="fl-bar" aria-hidden="true"><i></i></div>
+<div id="fl-wait" role="status" aria-live="polite"><div class="fl-card"><div class="fl-ring"></div><div class="fl-msg">Working…</div><small>Please keep this page open.</small></div></div>
+<script>
+/* FL-LOADER v1. Settings per portal go in window.FL_LOADER before this script:
+   { app:'SortCheck', quiet:['poll','sync',...], messages:{fn:'Saving…'}, waitAfter:1500 } */
+(function () {
+  var C = window.FL_LOADER || {}, quiet = ['getLogo', 'logClientError'].concat(C.quiet || []), msgs = C.messages || {};
+  var waitAfter = C.waitAfter || 1500, slow = 0, pending = 0, started = 0, lastBtn = null, lastBtnAt = 0, busyBtns = [], waitTimer = null;
+  var $ = function (id) { return document.getElementById(id); };
+  var splash = $('fl-splash'), bar = $('fl-bar'), wait = $('fl-wait');
+  if (C.app) splash.querySelector('.fl-app').textContent = C.app;
+  // show the cached logo on the splash, if the page has one stored
+  try { var lg = (C.logoKeys || ['sc_logo', 'fl_logo', 'logo', 'pp_logo']).map(function (k) { var v = localStorage.getItem(k); if (v && v.charAt(0) === '"') v = JSON.parse(v); return v; }).filter(function (v) { return v && v.indexOf('data:image') === 0; })[0];
+    if (lg) { var im = new Image(); im.className = 'fl-mark'; im.alt = 'Forwardlog'; im.src = lg; var w = splash.querySelector('.fl-word'); w.parentNode.replaceChild(im, w); } } catch (e) {}
+  var splashGone = false, loadedAt = 0;
+  function hideSplash() { if (splashGone) return; splashGone = true; splash.classList.add('fl-hide'); setTimeout(function () { splash.style.display = 'none'; }, 350); }
+  setTimeout(hideSplash, C.splashMax || 9000);                    // never block the page for long
+  window.addEventListener('load', function () { loadedAt = Date.now(); setTimeout(function () { if (!started) hideSplash(); }, 900); });
+  // remember the last button / link pressed, so its own spinner can show
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('button,.btn,[role=button],input[type=submit]');
+    if (b && !b.disabled && !(C.noSpin && b.matches(C.noSpin))) { lastBtn = b; lastBtnAt = Date.now(); }
+  }, true);
+  function fnOf(init) { try { return JSON.parse(init && init.body).fn || ''; } catch (e) { return ''; } }
+  function begin(fn) {
+    pending++; started++;
+    bar.classList.add('fl-on');
+    var b = lastBtn && Date.now() - lastBtnAt < 600 ? lastBtn : null; lastBtn = null;
+    if (b && b.offsetParent !== null) {
+      var bg = getComputedStyle(b).backgroundColor, m = bg.match(/\d+/g), light = m && (m[0] * 299 + m[1] * 587 + m[2] * 114) / 1000 > 150;
+      b.classList.add('fl-busy'); if (light) b.classList.add('fl-light'); b.setAttribute('aria-busy', 'true'); busyBtns.push(b);
+    }
+    var tracked = splashGone && !!(msgs[fn] || C.waitAll);
+    if (tracked) {
+      slow++;
+      setTimeout(function () { if (slow) { wait.querySelector('.fl-msg').textContent = msgs[fn] || 'Working…'; wait.classList.add('fl-on'); } }, waitAfter);
+    }
+    return tracked;
+  }
+  function endSlow() { slow = Math.max(0, slow - 1); if (!slow) wait.classList.remove('fl-on'); }
+  function end() {
+    pending = Math.max(0, pending - 1);
+    if (pending) return;
+    bar.classList.remove('fl-on');
+    busyBtns.forEach(function (b) { b.classList.remove('fl-busy', 'fl-light'); b.removeAttribute('aria-busy'); }); busyBtns = [];
+    if (!splashGone) setTimeout(function () { if (!pending) hideSplash(); }, 120);
+  }
+  var api = C.match || /script\.google(usercontent)?\.com\/macros\//;
+  var f0 = window.fetch;
+  window.fetch = function (url, init) {
+    var u = typeof url === 'string' ? url : (url && url.url) || '', fn = fnOf(init);
+    if (!api.test(u) || quiet.indexOf(fn) >= 0) return f0.apply(this, arguments);
+    var tracked = begin(fn), done = function () { if (tracked) endSlow(); end(); };
+    var p = f0.apply(this, arguments);
+    p.then(function (r) { return r.clone().text(); }).then(done, done);   // stop when the reply has fully arrived
+    return p;
+  };
+  window.FL_LOADER_API = { hideSplash: hideSplash, show: function (t) { wait.querySelector('.fl-msg').textContent = t || 'Working…'; wait.classList.add('fl-on'); }, hide: function () { wait.classList.remove('fl-on'); } };
+})();
+</script>
+<!-- /FL-LOADER -->
+
 <script>window.PORTAL_CFG = {"api": "https://script.google.com/macros/s/AKfycbwgFr9_KJj2JnTobQ-RwxnCiUmiz61E2kASd07SNSUcDb7enhdGDbB1r2-ZcLFXweXU/exec", "clientId": "91172054296-efavj9to958vrqkdk67pa96fo82466gk.apps.googleusercontent.com"};</script>
 <script>
 /* Forwardlog Progress Reports — browser adapter for the GitHub Pages build.
