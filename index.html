@@ -436,6 +436,37 @@ footer.tag b { color: var(--brand); font-weight: 800; letter-spacing: .6px; }
 @media print { footer.tag, #fl-signout { display: none !important; } .card, .gantt-wrap { box-shadow: none; } }
 </style>
 <style id="fl-header-std">/* same top bar as SortCheck and Presales: logo at the left edge */ body{margin:0} .topbar-in{max-width:none;padding-left:12px;padding-right:12px}</style>
+<!-- FL-HEADER v1: same top bar look as the Presales portal (account chip, title row). -->
+<style id="fl-header-css">
+header.top .who,.topbar .who{display:flex;align-items:center;gap:8px;white-space:nowrap;min-width:0;font-size:15px}
+header.top .who .who-txt,.topbar .who .who-txt{display:grid;text-align:right;line-height:1.15;min-width:0}
+header.top .who .who-txt b,.topbar .who .who-txt b{font-size:12.5px;font-weight:700;color:#262A27;overflow:hidden;text-overflow:ellipsis;max-width:220px}
+header.top .who .who-txt small,.topbar .who .who-txt small{font-size:11px;font-weight:400;color:#7A807B;overflow:hidden;text-overflow:ellipsis;max-width:220px}
+.fl-av{flex:0 0 30px;width:30px;height:30px;border-radius:50%;background:#5F7A61;color:#fff;font:800 12px/30px Montserrat,system-ui,sans-serif;text-align:center;letter-spacing:0;order:-1}
+header.top .who button,.topbar #fl-signout{background:#E9F0E9!important;color:#475C4A!important;border:0!important;border-radius:10px!important;padding:7px 11px!important;font:700 13px/18.85px Montserrat,system-ui,sans-serif!important;margin-left:0!important;cursor:pointer}
+header.top .htitle,.topbar .htitle{min-height:33px;box-sizing:border-box}
+header.top .htitle .app,.topbar .htitle .app{font-size:10px;font-weight:800;letter-spacing:1.6px;line-height:14.5px}
+header.top .htitle h1,.topbar .htitle .ctx{font-size:15px;font-weight:700;color:#262A27;line-height:21.75px}
+</style>
+<script>
+/* FL-HEADER v1: turn the picture avatar into the green initials circle and show the Google name. */
+(function () {
+  function jwtName(k) { try { var t = localStorage.getItem(k); if (t && t.charAt(0) === '"') t = JSON.parse(t); if (t && t.charAt(0) === '{') t = JSON.parse(t).t; var p = t.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'); return JSON.parse(decodeURIComponent(escape(atob(p + '==='.slice((p.length + 3) % 4))))).name || ''; } catch (e) { return ''; } }
+  function fix() {
+    document.querySelectorAll('header .who').forEach(function (w) {
+      var b = w.querySelector('.who-txt b'); if (!b) return;
+      var n = jwtName('sc_idtok') || jwtName('fl_prog_tok');
+      if (n && b.textContent !== n && b.textContent.replace(/\s/g, '').toLowerCase() === ((w.querySelector('small') || {}).textContent || '').split('@')[0].replace(/[._-]/g, '').toLowerCase()) b.textContent = n;
+      var img = w.querySelector('img');
+      if (img) { var d = document.createElement('div'); d.className = 'fl-av'; d.setAttribute('aria-hidden', 'true');
+        d.textContent = (b.textContent.match(/\b\w/g) || ['?']).slice(0, 2).join('').toUpperCase(); img.replaceWith(d); }
+    });
+  }
+  function start() { fix(); var h = document.querySelector('header'); if (h) new MutationObserver(fix).observe(h, { childList: true, subtree: true }); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
+})();
+</script>
+<!-- /FL-HEADER -->
 </head>
 <body>
 <script>window.FL_LOADER={"app":"Progress Reports","quiet":["poll"],"noSpin":"[data-a=setpct],[data-a=toggle-day],[data-a=filter]","messages":{"uploadPhoto":"Uploading photo…","saveFile":"Saving the PDF to Google Drive…"}}</script>
