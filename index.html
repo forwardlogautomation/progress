@@ -646,7 +646,7 @@ header.top .htitle h1,.topbar .htitle .ctx{font-size:15px;font-weight:700;color:
   function hideWall() { if (wall) { wall.style.display = "none"; wallMsg(""); } }
   function wallMsg(t) { const m = wall && wall.querySelector("#fl-msg"); if (m) m.textContent = t; }
   function signOut() {
-    const s = saved(); ls.del(TOK_KEY);
+    const s = saved(); ls.del(TOK_KEY); ls.del("fl_prog_cache_v1");
     try { if (window.google && google.accounts) { google.accounts.id.disableAutoSelect(); if (s && s.email) google.accounts.id.revoke(s.email, () => {}); } } catch (e) {}
     location.reload();
   }
@@ -699,20 +699,45 @@ header.top .htitle h1,.topbar .htitle .ctx{font-size:15px;font-weight:700;color:
     b.style.cssText = "position:fixed;left:0;right:0;top:0;z-index:50;padding:12px 16px;background:#b42318;color:#fff;font:14px/1.4 system-ui,sans-serif;text-align:center";
     b.textContent = msg; document.body.appendChild(b);
   }
+  /* Speed: the records from the last visit are kept on this device and shown at once;
+     the full, fresh copy is loaded from the Sheet straight after and replaces them. Saving waits for the fresh copy. */
+  const CACHE_KEY = "fl_prog_cache_v1";
+  let live = null, me = null;
+  const saveCache = () => {
+    try {
+      const changes = [];
+      Object.keys(store).forEach((c) => store[c].forEach((data, id) => changes.push({ c, id, data })));
+      const s = JSON.stringify({ email: me && me.email, me, version: since, changes });
+      if (s.length < 3500000) ls.set(CACHE_KEY, s); else ls.del(CACHE_KEY);
+    } catch (e) { ls.del(CACHE_KEY); }
+  };
   function start() {
-    if (!ready) ready = run("bootstrap").then((r) => {
-      since = r.version; apply(r.changes);
+    if (ready) return ready;
+    live = run("bootstrap").then((r) => {
+      Object.keys(store).forEach((c) => store[c].clear());
+      since = r.version; apply(r.changes); me = r.me; saveCache();
       setInterval(pollNow, 20000);
       addSignOut(); new MutationObserver(addSignOut).observe(document.body, { childList: true, subtree: true });
       document.addEventListener("visibilitychange", () => { if (!document.hidden) pollNow(); });
       return r;
-    }).catch((e) => { banner("The portal couldn't load: " + (e.message || "unknown error") + " Reload the page to try again."); throw e; });
+    });
+    let cached = null;
+    try { cached = JSON.parse(ls.get(CACHE_KEY) || "null"); } catch (e) { cached = null; }
+    const tok = saved();
+    if (cached && tok && cached.email && cached.email === tok.email && cached.me) {
+      apply(cached.changes); since = cached.version || 0; me = cached.me;
+      ready = Promise.resolve({ me: cached.me, version: since, changes: [] });
+      live.then(() => subs.forEach(fire)).catch((e) => banner("Couldn't refresh from the server: " + (e.message || "unknown error") + " What you see may be out of date. Reload the page to try again."));
+    } else {
+      ready = live.catch((e) => { banner("The portal couldn't load: " + (e.message || "unknown error") + " Reload the page to try again."); throw e; });
+    }
     return ready;
   }
+  const fresh = () => start().then(() => live);
   async function pollNow() {
     if (polling || document.hidden) return;
     polling = true;
-    try { const r = await run("poll", since); since = r.version; if (apply(r.changes)) subs.forEach(fire); } catch (e) { /* try again next round */ }
+    try { const r = await run("poll", since); since = r.version; if (apply(r.changes)) { subs.forEach(fire); saveCache(); } } catch (e) { /* try again next round */ }
     polling = false;
   }
   /* ---- submit password: asked when a report goes from draft to submitted; remembered for this tab ---- */
@@ -762,9 +787,9 @@ header.top .htitle h1,.topbar .htitle .ctx{font-size:15px;font-weight:700;color:
   const docRef = (c, id) => ({
     id, path: c + "/" + id,
     get: async () => { await start(); return snapDoc(c, id); },
-    set: async (data) => { await saveDoc(c, id, data); store[c].set(id, clone(data)); fireFor(c, id); },
-    update: async (data) => { const cur = store[c].get(id); if (!cur) throw { code: "invalid_argument", message: "Record not found" }; const next = Object.assign(clone(cur), data); await saveDoc(c, id, next); store[c].set(id, next); fireFor(c, id); },
-    delete: async () => { await run("deleteDoc", c, id); store[c].delete(id); fireFor(c, id); },
+    set: async (data) => { await fresh(); await saveDoc(c, id, data); store[c].set(id, clone(data)); fireFor(c, id); },
+    update: async (data) => { await fresh(); const cur = store[c].get(id); if (!cur) throw { code: "invalid_argument", message: "Record not found" }; const next = Object.assign(clone(cur), data); await saveDoc(c, id, next); store[c].set(id, next); fireFor(c, id); },
+    delete: async () => { await fresh(); await run("deleteDoc", c, id); store[c].delete(id); fireFor(c, id); },
     onSnapshot: (cb, err) => { const s = { c, id, cb }; subs.add(s); start().then(() => fire(s)).catch((e) => err && err(e)); return () => subs.delete(s); },
     collection: () => { throw new TypeError("Sub-collections aren't used by this portal"); }
   });
