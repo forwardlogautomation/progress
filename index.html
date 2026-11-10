@@ -88,7 +88,7 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .topbar .who b { font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; }
 .topbar .who small { font-size: .75rem; overflow: hidden; text-overflow: ellipsis; }
 
-.wrap { padding-block: 24px 96px; display: grid; gap: 22px; }
+.wrap { padding-block: 14px 96px; display: grid; gap: 22px; }
 .page-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 20px; }
 .page-head > div { display: grid; gap: 6px; min-width: 0; }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -360,7 +360,7 @@ details.card[open] .act-sum { border-bottom: 1px solid var(--line); }
 }
 /* Phones */
 @media (max-width: 640px) {
-  .wrap { padding-block: 16px 120px; gap: 18px; }
+  .wrap { padding-block: 14px 120px; gap: 18px; }
   .input, textarea.input, select.input, .pct-in, .stepper input { font-size: 16px; }
   .page-head .actions { width: 100%; }
   .page-head .actions .btn { flex: 1 1 auto; }
@@ -833,7 +833,7 @@ header.top .htitle h1,.topbar .htitle .ctx{font-size:15px;font-weight:700;color:
   </div>
 </header>
 <main id="app" class="wrap" aria-live="polite">
-  <div class="page-head"><div><p class="eyebrow">Forwardlog Automation · Project engineering</p><h1>Progress reports</h1></div></div>
+  <div class="page-head"><div><p class="eyebrow">Forwardlog Automation · Project engineering</p></div></div>
   <div class="card empty"><h2>Loading projects…</h2><p>Projects and reports load from the shared store. This takes a moment on first open.</p></div>
 </main>
 <footer class="tag"><b>FORWARDLOG</b> · Endless Flexibility In Automation</footer>
@@ -1126,7 +1126,7 @@ function wireImages(root) {
 function writeAllowed() { return S.db && S.canWrite !== false; }
 
 function headerBlock(eyebrow, title, actions = "", back = "") {
-  return `<div class="page-head"><div>${back}<p class="eyebrow">${eyebrow}</p><h1>${title}</h1></div>${actions ? `<div class="actions">${actions}</div>` : ""}</div>`;
+  return `<div class="page-head"><div>${back}<p class="eyebrow">${eyebrow}</p>${title ? `<h1>${title}</h1>` : ""}</div>${actions ? `<div class="actions">${actions}</div>` : ""}</div>`;
 }
 function meter(actual, sched) {
   return `<div class="meter" role="img" aria-label="Actual ${pct(actual)}, scheduled ${pct(sched)}"><div class="fill" style="width:${Math.min(100, actual * 100)}%"></div><div class="tick" style="left:${Math.min(100, sched * 100)}%"></div></div>`;
@@ -1136,7 +1136,7 @@ function meter(actual, sched) {
 function viewHome() {
   setCtx("Progress reports");
   const actions = writeAllowed() ? `<button class="btn primary" data-a="new-project">New timetable</button>` : "";
-  let out = headerBlock("Forwardlog Automation · Project engineering", "Progress reports", `<button class="btn" data-a="holidays">Public holidays</button>` + actions);
+  let out = headerBlock("Forwardlog Automation · Project engineering", "", `<button class="btn" data-a="holidays">Public holidays</button>` + actions);
   if (S.noDb) {
     out += `<div class="notice">${ENV ? "The portal couldn't reach its data. Check your connection and reload the page." : "Projects and reports live in this page's shared store, which isn't available in this view. Open the page on claude.ai while signed in to your Forwardlog account."}</div>`;
   }
