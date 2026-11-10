@@ -1110,12 +1110,14 @@ function render() {
   wireImages(app);
 }
 function go(view, opts = {}) {
+  if (view === "plan" && S.view !== "plan" && S.plan) S.planSnap = JSON.stringify(S.plan);
   S.view = view;
   if ("pid" in opts) S.pid = opts.pid;
   if ("rid" in opts) S.rid = opts.rid;
   S.confirm = null;
   render();
   window.scrollTo(0, 0);
+  navRecord();
 }
 function wireImages(root) {
   root.querySelectorAll("img[data-blob]").forEach((img) => {
@@ -3020,6 +3022,42 @@ async function leaveEditorTo(fn) { try { await saveDraft(); } catch { return; } 
 document.addEventListener("dragover", (ev) => { const d = ev.target.closest?.(".drop[data-slot]"); if (d) { ev.preventDefault(); d.classList.add("over"); } });
 document.addEventListener("dragleave", (ev) => { ev.target.closest?.(".drop[data-slot]")?.classList.remove("over"); });
 document.addEventListener("drop", (ev) => { const d = ev.target.closest?.(".drop[data-slot]"); if (d) { ev.preventDefault(); d.classList.remove("over"); addPhoto(ev.dataTransfer.files[0], Number(d.dataset.slot)); } });
+
+/* ---------- browser Back / Forward (phone back, Alt+Left, mouse back) ---------- */
+const NAV = { list: [], i: 0, skip: false };
+function navCur() { return { v: S.view, pid: S.pid || null, rid: S.rid || null }; }
+function navKey(s) {
+  if (!s) return "";
+  if (s.v === "project") return "project|" + s.pid;
+  if (s.v === "report") return "report|" + s.rid;
+  if (s.v === "edit" || s.v === "plan") return s.v + "|" + (s.pid || "") + "|" + (s.rid || "");
+  return s.v;
+}
+function navRecord() {
+  const cur = navCur(), k = navKey(cur);
+  if (!NAV.list.length || k === navKey(NAV.list[NAV.i])) { NAV.list[NAV.i] = cur; history.replaceState({ fl: 1, i: NAV.i, s: cur }, ""); return; }
+  // the in-page "← back" button went to the page we came from: step back in history instead of adding a new entry
+  if (NAV.i > 0 && k === navKey(NAV.list[NAV.i - 1])) { NAV.skip = true; NAV.i--; NAV.list[NAV.i] = cur; history.back(); return; }
+  NAV.list.length = NAV.i + 1; NAV.list.push(cur); NAV.i++;
+  history.pushState({ fl: 1, i: NAV.i, s: cur }, "");
+}
+NAV.list = [navCur()]; history.replaceState({ fl: 1, i: 0, s: NAV.list[0] }, "");
+window.addEventListener("popstate", async (ev) => {
+  if (NAV.skip) { NAV.skip = false; return; }
+  const st = ev.state; if (!st || !st.fl) return;
+  const from = NAV.i, to = st.i, t = st.s || { v: "home" };
+  const stay = () => { NAV.skip = true; history.go(from - to); };
+  if (S.view === "plan" && S.plan && S.planSnap && JSON.stringify(S.plan) !== S.planSnap && !confirm("Leave without saving the timetable changes?")) return stay();
+  if (S.view === "edit" && S.draft) { let ok = false; await leaveEditorTo(() => { ok = true; }); if (!ok) return stay(); }
+  if (S.view === "plan") { S.plan = null; S.search = []; S.shift = null; }
+  let v = t.v; const opts = {};
+  if (v === "edit" || v === "plan") v = t.pid ? "project" : "home";   // editors can't be reopened from history
+  if (v === "project" && !(S.projects && S.projects.get && S.projects.get(t.pid))) v = "home";
+  if (t.pid) opts.pid = t.pid;
+  if (t.rid) opts.rid = t.rid;
+  NAV.i = to; NAV.list[to] = { v: v, pid: t.pid || S.pid || null, rid: t.rid || S.rid || null };
+  go(v, opts);
+});
 
 /* ---------- boot ---------- */
 function liveRender() { if (S.view === "home" || S.view === "project" || S.view === "report" || S.view === "holidays") render(); }
