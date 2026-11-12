@@ -463,6 +463,16 @@ header.top .htitle h1,.topbar .htitle .ctx{font-size:15px;font-weight:700;color:
 })();
 </script>
 <!-- /FL-HEADER -->
+<style id="fl-wide">
+/* FL-WIDE v1: on a computer (761px and wider) every portal uses the full width from the left edge,
+   lined up with the logo; no centred column. Phones are unchanged. */
+@media (min-width:761px){
+  main,main.hub,main.wide,.wrap,.topbar-in{max-width:none!important;margin-left:0!important;margin-right:0!important}
+  .actionbar{padding-left:12px!important;padding-right:12px!important}
+  .fab{right:14px!important}
+  .ftag{max-width:none!important;margin-left:0!important;margin-right:0!important}
+}
+</style>
 </head>
 <body>
 <script>window.FL_LOADER={"app":"Progress Reports","quiet":["poll"],"noSpin":"[data-a=setpct],[data-a=toggle-day],[data-a=filter]","messages":{"uploadPhoto":"Uploading photo…","saveFile":"Saving the PDF to Google Drive…"}}</script>
